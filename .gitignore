@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --- LaTeX Exclusions (Keep your repo clean of build logs) ---
+.aux
+.log
+.fls
+.fdb_latexmk
+.synctex.gz
+.toc
