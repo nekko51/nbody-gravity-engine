@@ -47,7 +47,7 @@ el error numérico del integrador se mantiene acotado.
 Tras unas pocas iteraciones manuales (por el momento la optimización 
 no está automatizada), se obtienen las siguientes órbitas para 
 una fase de Venus $\vartheta=5.3328\ \text{rad}$ y un empujón a la nave
-que la frena $-4000\ \text{ms}^{-1}$ respecto a la Tierra, su punto de salida:
+que la frena $\Delta v=-4000\ \text{ms}^{-1}$ respecto a la Tierra, su punto de salida:
 
 ---
 ![Trayectoria de Asistencia Gravitacional](assets/orbitas.png)
