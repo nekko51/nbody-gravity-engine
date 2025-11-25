@@ -38,13 +38,16 @@ the numerical error of the integrator remains within limits.
 ---
 ---
 ---
-After a few manual iterations (at present, optimization 
-is not automated), the following orbits are obtained for 
+Through manual parameter tuning of the initial conditions, the following orbits were obtained for 
 a Venus phase $\vartheta=5.3328\ \text{rad}$ and a push to the spacecraft
 that slows it down $\Delta v=-4000\ \text{ms}^{-1}$ relative to Earth, its point of departure:
 
 ---
-![Trayectoria de Asistencia Gravitacional](assets/orbitas.png)
+<p align="center">
+  <img src="assets/orbitas.png" width="600" title="hover text">
+  <br>
+  <em>Fig 1. Trajectory simulation (axis in meters). Note: Visual outputs generated from original Spanish codebase.</em>
+</p>
 
 ---
 
