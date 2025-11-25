@@ -247,7 +247,7 @@ def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=Fa
     velocidadesIniciales = np.array(velocidadesIniciales)
     resultados = calculoOrbitas(posicionesIniciales,velocidadesIniciales,masas,tiempoSim,dtFactor,G,debug)
     varHNave = resultados[-1,2] - resultados[0,2]
-    return varHNave, faseVenus, deltaVelNave, resultados
+    return varHNave, faseVenus, max(resultados[:,2]), deltaVelNave, resultados
 
 def graficarSuperficieOptimizacion(min_fase,max_fase,min_dv,max_dv,resFase,resDV,dtFactor,tiempoSim,debug=False, assets="assets/"):
     print("Iniciando cálculo de superficie...")
@@ -275,7 +275,7 @@ def graficarSuperficieOptimizacion(min_fase,max_fase,min_dv,max_dv,resFase,resDV
             contador += 1
             tantoporuno = int(total_puntos/100) if total_puntos>100 else 1
             if contador%tantoporuno==0:
-                print(f"\rCalculando: {contador:4}/{total_puntos} ({(contador/total_puntos)*100:.1f}%)")
+                print(f"\rCalculando: {contador:4}/{total_puntos} ({(contador/total_puntos)*100:.1f}%)", end='')
             
     print("\nCálculo terminado. Generando gráfica...")
 
