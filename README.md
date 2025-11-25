@@ -19,9 +19,11 @@ paso de tiempo adaptativo.
 ## Computación
 ### Modelo numérico
 Se utiliza la mecánica Lagrangiana para obtener las ecuaciones de movimiento:
+
 $$
 \ddot {\vec r_i}=-\sum_{j\ne i}^nGM_j\frac{\vec r_i-\vec r_j}{\big|\vec r_i-\vec r_j\big|^3}
 $$
+
 Estas ecuaciones diferenciales no tienen solución analítica para el número de 
 cuerpos en juego. Por ello, se utiliza el integrador Runge-Kutta de cuarto orden (RK4).
 
@@ -29,6 +31,7 @@ A esto se le añade la necesidad de salvar singularidades cuando se lleve a
 cabo la maniobra objeto de estudio. Para manejarlas como mejor se pueda, se utiliza 
 un paso de tiempo adaptativo proporcional a la distancia entre la nave y el 
 cuerpo más cercano a ella: 
+
 $$
 \delta t=\eta r_\text{min}
 $$
