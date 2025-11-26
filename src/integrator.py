@@ -97,18 +97,19 @@ def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,debug=False):
         velActual = extraerVelocidadesVectorEstado(vectorEstado,dim,N)
         posActual = extraerPosicionesVectorEstado(vectorEstado,dim,N)
         velNaveNorm = (velActual[-1] @ velActual[-1])**.5
-        if velNaveNorm > 1e-9:
-            dt = dtFactor*distanciaMinimaUltimoCuerpo(posActual)#/velNaveNorm
+        rmin = distanciaMinimaUltimoCuerpo(posActual)
+        if rmin*dtFactor > 1e2:
+            dt = dtFactor*rmin/velNaveNorm
         else:
             dt = 100.0
         nextPos, nextVel = stepRungeKutta4(posActual,velActual,masas,G,dt)
         stepNumber += 1
         timePassed += dt
-        if debug and stepNumber%1e3==0:
+        if debug and stepNumber%1e2==0:
             print(
-                f"\rtSim: {int(timePassed/3600):7}h.\ttimeStep:{int(stepNumber/1000):7}e3.\tdt: {int(dt):10}", 
+                f"\rtSim: {int(timePassed/3600):7}h.    timeStep:{int(stepNumber/100):7}e2.    rmin: {int(rmin):15}.    shipVel:{int(velNaveNorm):15}", 
                 end="")
-        # H = calculoHamiltoniano(nextPos,nextVel,masas,G)
+        H = calculoHamiltoniano(nextPos,nextVel,masas,G)
         naveH = calculoHamiltonianoNave(nextPos,nextVel,masas,G)
         historial.append(
             [timePassed,H,naveH, *nextPos.flatten(), *nextVel.flatten()]
@@ -125,9 +126,6 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     """
     dim = 3
     total_cols = historial.shape[1]
-    
-    # AJUSTE DE INDICE: 
-    # Restamos 3 columnas iniciales: Tiempo, H_total, H_nave
     n_cuerpos = int((total_cols - 3) / 2 / dim)
 
     if nombres is None:
@@ -140,7 +138,6 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     colores = ['black', 'orange', 'blue', 'red', 'gray', 'green', 'purple']
 
     for i in range(n_cuerpos):
-        # El índice de datos empieza ahora en 3
         idx_x = 3 + i * dim
         idx_y = idx_x + 1
         
@@ -148,7 +145,6 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
         y = historial[:, idx_y]
         
         color = colores[i % len(colores)]
-        # Estilo: la nave (último cuerpo) va en punteado
         es_nave = (i == n_cuerpos - 1)
         estilo = '--' if es_nave else '-'
         grosor = 1.5 if es_nave else 2
@@ -172,20 +168,87 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     print(f"Guardado: {fichero_orbitas}")
     # plt.show() # -----------------------------------------------------------------
 
-    # Extraer datos comunes de tiempo
     tiempo = historial[:, 0]
+
+    # ==========================================
+    # GRÁFICA: TRAYECTORIAS ESPACIO-TIEMPO (X-Y-t)
+    # ==========================================
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection='3d') # Creamos un eje tridimensional
+
+    colores = ['black', 'orange', 'blue', 'red', 'gray', 'green', 'purple']
+
+    # Extraemos el vector de tiempo
+    t = historial[:, 0]
+
+    for i in range(n_cuerpos):
+        # El índice de datos (misma lógica que tu código)
+        idx_x = 3 + i * dim
+        idx_y = idx_x + 1
+
+        x = historial[:, idx_x]
+        y = historial[:, idx_y]
+
+        color = colores[i % len(colores)]
+
+        # Estilo: la nave (último cuerpo) va en punteado
+        es_nave = (i == n_cuerpos - 1)
+        estilo = '--' if es_nave else '-'
+        grosor = 1.5 if es_nave else 2
+
+        # --- CAMBIO PRINCIPAL: PLOT 3D (X, Y, TIEMPO) ---
+        # Ponemos el tiempo en el eje Z para ver la espiral de evolución
+        ax.plot(x, y, t, color=color, linestyle=estilo, linewidth=grosor, label=nombres[i], alpha=0.8)
+
+        # Marcador de inicio (t=0)
+        ax.scatter(x[0], y[0], t[0], marker='.', color=color, s=20, alpha=0.5)
+
+        # Marcador final (t actual)
+        marker = '*' if i == 0 else 'o'
+        # Nota: scatter usa 's' para el tamaño (area), plot usa 'markersize'
+        size = 100 if i == 0 else 40 
+        ax.scatter(x[-1], y[-1], t[-1], marker=marker, color=color, s=size)
+
+    # Etiquetas
+    ax.set_xlabel('Posición X (m)')
+    ax.set_ylabel('Posición Y (m)')
+    ax.set_zlabel('Tiempo (s)') # Eje vertical
+
+    ax.set_title(f'Evolución Espacio-Temporal (t = {t[-1]:.2e} s)')
+    ax.legend()
+
+    ax.view_init(elev=20, azim=-45) 
+
+    max_range = np.array([x.max()-x.min(), y.max()-y.min()]).max() / 2.0
+    mid_x = (x.max()+x.min()) * 0.5
+    mid_y = (y.max()+y.min()) * 0.5
+
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+
+    ax.set_box_aspect((1, 1, 1.5)) 
+    plt.tight_layout()
+
+    fichero_orbitas_3d = assets + "orbitas_tiempo_3d.png"
+    plt.savefig(fichero_orbitas_3d, dpi=300)
+    print(f"Guardado: {fichero_orbitas_3d}")
+    # plt.show()
 
     # ==========================================
     # GRÁFICA 2: HAMILTONIANO TOTAL (SISTEMA)
     # ==========================================
     hamiltoniano = historial[:, 1]
     h0 = hamiltoniano[0]
-    # Evitar división por cero si H0 es 0 (raro, pero posible)
-    var_relativa = (np.max(hamiltoniano) - np.min(hamiltoniano)) / (np.abs(h0) if h0!=0 else 1)
+    # Evitar división por cero si H0 es 0
+    Hmin = np.min(hamiltoniano)
+    Hmax = np.max(hamiltoniano)
+    var_relativa = (Hmax - Hmin) / (np.abs(h0) if h0!=0 else 1)
 
     plt.figure(figsize=(10, 5))
     plt.plot(tiempo, hamiltoniano, color='purple', linewidth=1.5)
     
+    plt.ylim(Hmin, Hmax)
+
     plt.xlabel('Tiempo (s)')
     plt.ylabel('Energía Total (J)')
     plt.title(f'Estabilidad del Integrador (Error Rel: {var_relativa:.2e})')
@@ -200,13 +263,11 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     # ==========================================
     # GRÁFICA 3: ENERGÍA MECÁNICA NAVE
     # ==========================================
-    # Esta es la columna nueva (índice 2)
     nave_H = historial[:, 2] 
     
     plt.figure(figsize=(10, 5))
     plt.plot(tiempo, nave_H, color='teal', linewidth=1.5, label='Energía Nave')
-    
-    # Línea de referencia en 0 (Límite de escape)
+
     plt.axhline(0, color='red', linestyle='--', alpha=0.7, label='Límite de Escape (E=0)')
     
     plt.xlabel('Tiempo (s)')
@@ -214,8 +275,7 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     plt.title('Evolución de Energía de la Nave')
     plt.legend()
     plt.grid(True, alpha=0.5, linestyle='--')
-    
-    # Añadimos anotación del estado final
+
     estado_final = "ESCAPANDO" if nave_H[-1] >= 0 else "ORBITANDO"
     plt.text(tiempo[-1], nave_H[-1], f" {estado_final}", verticalalignment='bottom')
 
@@ -247,7 +307,7 @@ def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=Fa
     velocidadesIniciales = np.array(velocidadesIniciales)
     resultados = calculoOrbitas(posicionesIniciales,velocidadesIniciales,masas,tiempoSim,dtFactor,G,debug)
     varHNave = resultados[-1,2] - resultados[0,2]
-    return varHNave, faseVenus, max(resultados[:,2]), deltaVelNave, resultados
+    return varHNave, faseVenus, deltaVelNave, resultados
 
 def graficarSuperficieOptimizacion(min_fase,max_fase,min_dv,max_dv,resFase,resDV,dtFactor,tiempoSim,debug=False, assets="assets/"):
     print("Iniciando cálculo de superficie...")

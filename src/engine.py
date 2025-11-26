@@ -2,19 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import integrator as ing
 
-dtFact = 1e-6
-tSim = 3e7
+dtFact = 1e-3
+tSim = 1.75e7
 
-_,_,_,_,hist = ing.optimizationStepSlingshot(5.3328,-4000,tSim,dtFact,True)
+_,_,_,hist = ing.optimizationStepSlingshot(5.333,-4000,tSim,dtFact,True)
 ing.graficarTrayectorias(hist)
 
 # barrido fases
 
-# minF, maxF = 5.33235, 5.33245
-# fases = np.linspace(minF,maxF,10)
+# minF, maxF = 5.3322, 5.3326
+# fases = np.linspace(minF,maxF,20)
 # maximH = []
 # for fase in fases:
-#     maximH.append(ing.optimizationStepSlingshot(fase,-4000,tSim,dtFact,True)[2])
+#     maximH.append(ing.optimizationStepSlingshot(fase,-4000,tSim,dtFact,True)[0])
 # maximH = np.array(maximH)
 # plt.plot(fases,maximH)
 # plt.show()
