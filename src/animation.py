@@ -4,7 +4,7 @@ import numpy as np
 import integrator as ing
 
 dtFact = 1e-3
-tSim = 2e7
+tSim = 3e7
 _,_,_,historial = ing.optimizationStepSlingshot(5.333,-4000,tSim,dtFact,True)
 n_cuerpos = 4
 dim = 3

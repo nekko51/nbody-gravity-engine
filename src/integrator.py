@@ -83,7 +83,7 @@ def calculoHamiltonianoNave(posiciones,velocidades,masas,G):
     T = masas[-1] * velNave.T @ velNave / 2
     return T + V
 
-def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,debug=False):
+def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,fase,debug=False):
     N=len(masas)
     dim = initPos.shape[1]
     H = calculoHamiltoniano(initPos,initVel,masas,G)
@@ -102,12 +102,15 @@ def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,debug=False):
             dt = dtFactor*rmin/velNaveNorm
         else:
             dt = 100.0
+        if rmin < 6151800:
+            print("==================\nHa habido una colisión.\n==================")
+            return np.array([0])
         nextPos, nextVel = stepRungeKutta4(posActual,velActual,masas,G,dt)
         stepNumber += 1
         timePassed += dt
         if debug and stepNumber%1e2==0:
             print(
-                f"\rtSim: {int(timePassed/3600):7}h.    timeStep:{int(stepNumber/100):7}e2.    rmin: {int(rmin):15}.    shipVel:{int(velNaveNorm):15}", 
+                f"\rtSim: {timePassed/tiempoSim*100:.2f}%.    timeStep:{int(stepNumber):10}.    rmin: {int(rmin/1e6):6} Mm.    shipVel:{int(velNaveNorm/1e3):5} kms.    faseV: {fase}", 
                 end="")
         H = calculoHamiltoniano(nextPos,nextVel,masas,G)
         naveH = calculoHamiltonianoNave(nextPos,nextVel,masas,G)
@@ -305,9 +308,11 @@ def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=Fa
     ]
     posicionesIniciales = np.array(posicionesIniciales)
     velocidadesIniciales = np.array(velocidadesIniciales)
-    resultados = calculoOrbitas(posicionesIniciales,velocidadesIniciales,masas,tiempoSim,dtFactor,G,debug)
-    varHNave = resultados[-1,2] - resultados[0,2]
-    return varHNave, faseVenus, deltaVelNave, resultados
+    resultados = calculoOrbitas(posicionesIniciales,velocidadesIniciales,masas,tiempoSim,dtFactor,G,faseVenus,debug)
+    if resultados.any():
+        varHNave = resultados[-1,2] - resultados[0,2]
+        return varHNave, faseVenus, deltaVelNave, resultados
+    else:   return 0, faseVenus, 0, 0
 
 def graficarSuperficieOptimizacion(min_fase,max_fase,min_dv,max_dv,resFase,resDV,dtFactor,tiempoSim,debug=False, assets="assets/"):
     print("Iniciando cálculo de superficie...")
