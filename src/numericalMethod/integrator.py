@@ -103,14 +103,14 @@ def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,fase,debug=False):
         else:
             dt = 100.0
         if rmin < 6151800:
-            print("==================\nHa habido una colisión.\n==================")
+            print("=======================\nHa habido una colisión.\n=======================")
             return np.array([0])
         nextPos, nextVel = stepRungeKutta4(posActual,velActual,masas,G,dt)
         stepNumber += 1
         timePassed += dt
         if debug and stepNumber%1e2==0:
             print(
-                f"\rtSim: {timePassed/tiempoSim*100:.2f}%.    timeStep:{int(stepNumber):10}.    rmin: {int(rmin/1e6):6} Mm.    shipVel:{int(velNaveNorm/1e3):5} kms.    faseV: {fase}", 
+                f"\rfase:{fase:.10f}. step:{int(stepNumber):10}. rmin:{int(rmin/1e6):6} Mm. vN:{int(velNaveNorm/1e3):5} kms. {timePassed/tiempoSim*100:.2f}%", 
                 end="")
         H = calculoHamiltoniano(nextPos,nextVel,masas,G)
         naveH = calculoHamiltonianoNave(nextPos,nextVel,masas,G)
@@ -177,15 +177,13 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     # GRÁFICA: TRAYECTORIAS ESPACIO-TIEMPO (X-Y-t)
     # ==========================================
     fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d') # Creamos un eje tridimensional
+    ax = fig.add_subplot(111, projection='3d') 
 
     colores = ['black', 'orange', 'blue', 'red', 'gray', 'green', 'purple']
 
-    # Extraemos el vector de tiempo
     t = historial[:, 0]
 
     for i in range(n_cuerpos):
-        # El índice de datos (misma lógica que tu código)
         idx_x = 3 + i * dim
         idx_y = idx_x + 1
 
@@ -194,28 +192,21 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
 
         color = colores[i % len(colores)]
 
-        # Estilo: la nave (último cuerpo) va en punteado
         es_nave = (i == n_cuerpos - 1)
         estilo = '--' if es_nave else '-'
         grosor = 1.5 if es_nave else 2
 
-        # --- CAMBIO PRINCIPAL: PLOT 3D (X, Y, TIEMPO) ---
-        # Ponemos el tiempo en el eje Z para ver la espiral de evolución
         ax.plot(x, y, t, color=color, linestyle=estilo, linewidth=grosor, label=nombres[i], alpha=0.8)
 
-        # Marcador de inicio (t=0)
         ax.scatter(x[0], y[0], t[0], marker='.', color=color, s=20, alpha=0.5)
 
-        # Marcador final (t actual)
         marker = '*' if i == 0 else 'o'
-        # Nota: scatter usa 's' para el tamaño (area), plot usa 'markersize'
         size = 100 if i == 0 else 40 
         ax.scatter(x[-1], y[-1], t[-1], marker=marker, color=color, s=size)
 
-    # Etiquetas
     ax.set_xlabel('Posición X (m)')
     ax.set_ylabel('Posición Y (m)')
-    ax.set_zlabel('Tiempo (s)') # Eje vertical
+    ax.set_zlabel('Tiempo (s)')
 
     ax.set_title(f'Evolución Espacio-Temporal (t = {t[-1]:.2e} s)')
     ax.legend()
@@ -298,7 +289,7 @@ def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=Fa
         [0.0, 0.0,0.0],    
         [rVenus*np.cos(faseVenus),rVenus*np.sin(faseVenus),0.0], 
         [1.49600e11,0.0,0.0],
-        [1.49500e11,0.0,0.0],
+        [1.49500e11,0.0,0.0], # delta = 1e8, para salir de la SOI de la tierra debería ser 1e9
     ]
     velocidadesIniciales = [
         [0.0, 0.0,0.0],

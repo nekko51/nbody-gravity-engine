@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
-import integrator as ing
+import numericalMethod.integrator as ing
 
 dtFact = 1e-3
 tSim = 3e7
