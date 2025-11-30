@@ -33,16 +33,25 @@ def trajectoryRadius(angle, orbitPar, eccentricity):
 def cartesian(radius, angle):
     return radius*np.cos(angle), radius*np.sin(angle)
 
-def trajectoryFromState(position, velocity, mass, constantK, 
-                        measurementNumber = 1000):
+def polarTrajectoryFromState(position, velocity, 
+                             mass, constantK, 
+                             measurementNumber = 1000):
     energy, angularMomentum = constantsFromState(position, velocity, mass, constantK)
     eccentricity = getEccentricity(energy, angularMomentum, mass, constantK)
     angle = np.linspace(0, 2*np.pi, measurementNumber)
     radius = trajectoryRadius(angle, angularMomentum**2/mass**2/constantK, eccentricity)
     x, y = cartesian(radius, angle)
-    return x, y
+    return x, y 
 
+def bolzano(function):
+    sign = np.sign(function)
+    out = np.floor(np.abs(np.diff(sign)/2))
+    return out
 
+def ellipseIntersec(tra1, tra2):
+    relativeTraj = np.linalg.norm(tra2-tra1)
+    # posiciones = tra1[bolzano(relativeTraj)==1]
+    
 
 if __name__ == '__main__':
     G = 6.67430e-11
@@ -53,7 +62,7 @@ if __name__ == '__main__':
 
     posVec = np.array([rEarth,0,0])
     velVec = np.array([0,vEarth,0])
-    X, Y = trajectoryFromState(posVec,velVec,mEarth,G*mSun)
+    X, Y = cartesian(polarTrajectoryFromState(posVec,velVec,mEarth,G*mSun))
     plt.axis('equal')
     plt.plot(X,Y)
     plt.show()

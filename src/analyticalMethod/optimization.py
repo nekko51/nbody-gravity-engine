@@ -11,3 +11,8 @@ vVenus = 3.50200e4
 rEarth = 1.49600e11
 vEarth = 2.97800e4
 mass=[mSun,mVenus,mEarth,1e6]
+
+f = -np.linspace(-2,2,10)**2+1
+
+print(np.round(f,2))
+print(cnc.bolzano(f))
