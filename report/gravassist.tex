@@ -62,20 +62,20 @@
 \counterwithin*{section}{part}
 \begin{document}
 
-\titulo(Análisis de maniobra de asistencia gravitacional:\\ ``slingshot'', Mecánica Clásica I \\ Eneko Acevedo Pérez)
+\titulo(Análisis de maniobra de asistencia gravitacional, Mecánica Clásica I \\ Eneko Acevedo Pérez)
 \vspace{3cm}
 \begin{figure}[ht!]
 	\centering
 	\begin{tikzpicture}
-		\filldraw[yellow] (0,0) node[black]{Sol} circle (.5);
+		\filldraw[yellow] (0,0) node[black]{} circle (.5);
 		% órbitas
 		\draw[] (0,0) circle (6);
 		\draw[] (0,0) circle (4);
 		\draw[red, thick] (6,0) arc(0:90:5 cm);
 		% \draw[thick, red] (1,0) ellipse (5 and 4.5);
 		% planetas
-		\filldraw[blue!50] (6,0) node[black,below left]{Tierra} circle (.2);
-		\filldraw[orange!50] (2.82,2.82) node[black,above right]{Venus} circle (.2);
+		\filldraw[blue!50] (6,0) node[black,below left]{} circle (.2);
+		\filldraw[orange!50] (2.82,2.82) node[black,above right]{} circle (.2);
 		\node[dart, draw, fill, red, rotate=180] at (1.1,5) {};
 	\end{tikzpicture}
 \end{figure}
@@ -117,15 +117,15 @@ de la distancia de la nave al cuerpo más cercano.
 % ------------------------------------------
 \part{Cálculo Analítico}
 
-En esta parte del trabajo abordamos el problema dividiendo la trayectoria en dos regímenes dinámicos diferenciados, una técnica conocida en astrodinámica como \textit{Patched Conics}. Para cada régimen, simplificamos el sistema general de $N$ cuerpos reduciéndolo a problemas locales de dos cuerpos, lo cual nos permite aplicar soluciones analíticas exactas.
+En esta parte del trabajo abordamos el problema dividiendo la trayectoria en dos regímenes dinámicos diferenciados, una técnica llamada aproximación por secciones cónicas. Para cada régimen, simplificamos el sistema general de $N$ cuerpos reduciéndolo a problemas locales de dos cuerpos, lo cual nos permite aplicar soluciones analíticas exactas.
 
 \section{La transferencia heliocéntrica}
 
-Para la fase de crucero entre la Tierra y Venus, consideramos el sistema Sol-nave aislado. Según la teoría de fuerzas centrales, este sistema de dos cuerpos puede reducirse a un problema efectivo de un solo cuerpo de masa reducida $\mu$ moviéndose en un potencial central $V(r)$ (\cite{teoria_mecanica}, p. 44).
+Para la fase de crucero entre la Tierra y Venus, consideramos el sistema Sol-nave aislado. Según la teoría de fuerzas centrales, este sistema de dos cuerpos puede reducirse a un problema efectivo de un solo cuerpo de masa reducida $\mu$ moviéndose en un potencial central $V(r)$ (\cite{teoria_mecanica}).
 
 Dado que la masa de la nave es despreciable frente a la del Sol ($m \ll M_{\odot}$), la masa reducida $\mu \approx m$ y el centro de masas coincide prácticamente con el Sol. La dinámica queda gobernada por la conservación de la energía mecánica $E$ y del momento angular $\vec{L}$, lo que confina la trayectoria a un plano invariante.
 
-La ecuación de la \textit{vis-viva}, derivada directamente de la integral de la energía para el potencial gravitatorio newtoniano, determina la velocidad en cualquier punto de la elipse de transferencia:
+La ecuación de la vis-viva, derivada directamente de la integral de la energía para el potencial gravitatorio newtoniano, determina la velocidad en cualquier punto de la elipse de transferencia:
 
 \begin{equation}
     v^2 = \mu \left( \frac{2}{r} - \frac{1}{a} \right)
@@ -136,7 +136,7 @@ donde $v$ es la velocidad orbital de la nave, $r$ la distancia heliocéntrica, $
 
 \section{Dispersión en la Esfera de Influencia (SOI)}
 
-Cuando la nave ingresa en la Esfera de Influencia de Venus ($r < r_{\text{SOI}}$), realizamos un cambio de sistema de referencia. El problema se modela ahora como la interacción de una partícula libre con un centro dispersor fijo (Venus). Definimos el límite de esta interacción mediante la aproximación de Laplace (\cite{rsoi}):
+Cuando la nave ingresa en la Esfera de Influencia de Venus ($r < r_{\text{SOI}}$), realizamos un cambio de sistema de referencia. El problema se modela ahora como la interacción de una partícula libre con un centro dispersor fijo (Venus). Definimos el límite de esta interacción mediante la siguiente aproximación (tomada de \cite{rsoi}):
 
 \begin{equation}
     r_{\text{SOI}} \approx r_{\text{v}} \left( \frac{m_{\text{v}}}{M_{\odot}} \right)^{2/5}
@@ -144,7 +144,7 @@ Cuando la nave ingresa en la Esfera de Influencia de Venus ($r < r_{\text{SOI}}$
 donde $r_{\text{v}}$ es la distancia del Sol a Venus, $M_\odot$ es la masa del 
 Sol y $m_{\text{v}}$ la masa de Venus.
 
-En este marco local, la nave posee una energía mecánica positiva respecto a Venus ($E > 0$), lo que resulta en una trayectoria abierta hiperbólica. El objetivo del \textit{slingshot} se reinterpreta como un problema de dispersión: buscamos maximizar la deflexión del vector velocidad asintótico.
+En este marco local, la nave posee una energía mecánica positiva respecto a Venus ($E > 0$), lo que resulta en una trayectoria abierta hiperbólica. El objetivo de la maniobra se reinterpreta como un problema de dispersión: buscamos maximizar la deflexión del vector velocidad asintótico.
 
 La geometría del encuentro viene caracterizada por el parámetro de impacto $s$ (distancia perpendicular asintótica al centro de fuerzas). Según la teoría de dispersión en campos centrales conservativos, el ángulo de dispersión $\theta$ (el ángulo total que gira la velocidad de la nave) está relacionado unívocamente con $s$ mediante la expresión (\cite{teoria_mecanica}):
 
@@ -184,7 +184,7 @@ Esta ecuación no tiene solución analítica cerrada para $N > 2$, por lo que re
 
 Hay que tener en cuenta que el término de energía potencial efectiva diverge cuando la distancia relativa tiende a cero ($V \propto -1/r$).
 
-Durante el \textit{slingshot}, la nave pasa muy cerca de Venus (en el periapsis), donde la curvatura de la trayectoria y la magnitud de la aceleración cambian drásticamente. Un paso de tiempo fijo ($\Delta t$) sería computacionalmente ineficiente en el espacio interplanetario (demasiado pequeño) e impreciso en el encuentro cercano (demasiado grande).
+Durante la maniobra, la nave pasa muy cerca de Venus (en el periapsis), donde la curvatura de la trayectoria y la magnitud de la aceleración cambian drásticamente. Un paso de tiempo fijo ($\Delta t$) sería computacionalmente ineficiente en el espacio interplanetario (demasiado pequeño) e impreciso en el encuentro cercano (demasiado grande).
 
 Para solucionar esto, se implementa un algoritmo de paso de tiempo adaptativo. La simulación ajusta dinámicamente $\Delta t$ en función de la distancia al cuerpo más cercano ($r_\text{min}$):
 
@@ -201,7 +201,7 @@ Dado que el Lagrangiano del sistema no depende explícitamente del tiempo ($\par
     H = \sum_{i} \frac{|\vec{p}_i|^2}{2m_i} + V(\vec{r}_1, ..., \vec{r}_N) = \text{cte}
 \end{equation}
 
-Utilizamos esta propiedad teórica como herramienta de control de calidad. Monitorizando la variación de la energía total del sistema durante la simulación, verificamos que el error numérico introducido por el integrador RK4 se mantiene acotado, validando así la precisión física de la trayectoria de \textit{slingshot} obtenida.
+Utilizamos esta propiedad teórica como herramienta de control de calidad. Monitorizando la variación de la energía total del sistema durante la simulación, verificamos que el error numérico introducido por el integrador RK4 se mantiene acotado, validando así la precisión física de la trayectoria obtenida.
 
 
 % ------------------------------------------
@@ -209,7 +209,7 @@ Utilizamos esta propiedad teórica como herramienta de control de calidad. Monit
 % ------------------------------------------
 \phantomsection
 \addcontentsline{toc}{part}{Discusión de Resultados y Conclusiones}
-\part*{Análisis de Resultados y Consluciones}
+\part*{Análisis de Resultados y Concluciones}
 
 
 % ------------------------------------------

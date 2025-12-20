@@ -233,7 +233,6 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
     # ==========================================
     hamiltoniano = historial[:, 1]
     h0 = hamiltoniano[0]
-    # Evitar división por cero si H0 es 0
     Hmin = np.min(hamiltoniano)
     Hmax = np.max(hamiltoniano)
     var_relativa = (Hmax - Hmin) / (np.abs(h0) if h0!=0 else 1)
@@ -289,7 +288,7 @@ def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=Fa
         [0.0, 0.0,0.0],    
         [rVenus*np.cos(faseVenus),rVenus*np.sin(faseVenus),0.0], 
         [1.49600e11,0.0,0.0],
-        [1.49500e11,0.0,0.0], # delta = 1e8, para salir de la SOI de la tierra debería ser 1e9
+        [1.49500e11,0.0,0.0], # delta = 1e8 (1.495e11), para salir de la SOI de la tierra debería ser 1e9 (1.486e11)
     ]
     velocidadesIniciales = [
         [0.0, 0.0,0.0],

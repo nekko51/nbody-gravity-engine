@@ -1,68 +1,68 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
-def getEccentricity(totEnergy: float, 
-                    angularMomentum: float, 
-                    mass: float, 
-                    constantK: float) -> float:
-    return np.sqrt(1+2*totEnergy*angularMomentum**2/(mass**3*constantK**2))
-
-def constantsFromState(position, velocity, mass, constantK):
-    '''energy, angular momentum'''
-    T = velocity @ velocity * .5 * mass
-    r = np.linalg.norm(position)
-    V = - constantK * mass / r
-    energy = T + V
-    L_vector = np.cross(position, velocity * mass)
-    angularMomentum = np.linalg.norm(L_vector)
-    return energy, angularMomentum
-
-def dispersionAngle(impactParameter, totEnergy, constantK):
-    return 2*np.arctan(constantK/(2*totEnergy*impactParameter))
-
-def getSOI(semimajor, smallMass, bigMass):
-    return semimajor*(smallMass/bigMass)**(2/5)
-
-# print(f'soiV: {getSOI(rVenus,mVenus,mSun)/1e6:.2f} e6\nsoiE: {getSOI(rEarth,mEarth,mSun)/1e6:.2f} e6')
-# soiV: 6.1623e8
-# soiE: 9.2465e8
-
-def trajectoryRadius(angle, orbitPar, eccentricity):
-    return orbitPar/(1+eccentricity*np.cos(angle))
-
-def cartesian(radius, angle):
-    return radius*np.cos(angle), radius*np.sin(angle)
-
-def polarTrajectoryFromState(position, velocity, 
-                             mass, constantK, 
-                             measurementNumber = 1000):
-    energy, angularMomentum = constantsFromState(position, velocity, mass, constantK)
-    eccentricity = getEccentricity(energy, angularMomentum, mass, constantK)
-    angle = np.linspace(0, 2*np.pi, measurementNumber)
-    radius = trajectoryRadius(angle, angularMomentum**2/mass**2/constantK, eccentricity)
-    x, y = cartesian(radius, angle)
-    return x, y 
-
-def bolzano(function):
-    sign = np.sign(function)
-    out = np.floor(np.abs(np.diff(sign)/2))
-    return out
-
-def ellipseIntersec(tra1, tra2):
-    relativeTraj = np.linalg.norm(tra2-tra1)
-    # posiciones = tra1[bolzano(relativeTraj)==1]
-    
-
-if __name__ == '__main__':
+def calculate_intersections_and_plot(target_radius, mass_central, mass_satellite, position, velocity):
     G = 6.67430e-11
-    mSun = 1.98850e30
-    mEarth = 5.97220e24
-    rEarth = 1.49600e11
-    vEarth = 2.97800e4
+    mu = G * (mass_central + mass_satellite)
+    
+    r_vec = np.array(position, dtype=float)
+    v_vec = np.array(velocity, dtype=float)
+    r_mag = np.linalg.norm(r_vec)
+    v_mag = np.linalg.norm(v_vec)
+    
+    h_vec = np.cross(np.append(r_vec, 0), np.append(v_vec, 0))
+    h = np.linalg.norm(h_vec)
+    
+    term1 = np.cross(np.append(v_vec, 0), h_vec) / mu
+    term2 = np.append(r_vec, 0) / r_mag
+    e_vec_3d = term1 - term2
+    e_vec = e_vec_3d[:2] 
+    
+    e = np.linalg.norm(e_vec)
+    
+    if abs(e - 1.0) < 1e-9:
+        print("Orbit is parabolic.")
+        return
+    
+    p = (h**2) / mu
+    a = p / (1 - e**2) 
+    omega = np.arctan2(e_vec[1], e_vec[0])
+    
+    print(f"--- Orbit Data ---")
+    print(f"Eccentricity (e):       {e:.4f}")
+    print(f"Semi-major axis (a):    {a/1000:.2f} km")
+    print(f"Periapsis (rp):         { (a*(1-e))/1000:.2f} km")
+    print(f"Apoapsis (ra):          { (a*(1+e))/1000:.2f} km")
+    print(f"Target Radius:          {target_radius/1000:.2f} km")
 
-    posVec = np.array([rEarth,0,0])
-    velVec = np.array([0,vEarth,0])
-    X, Y = cartesian(polarTrajectoryFromState(posVec,velVec,mEarth,G*mSun))
-    plt.axis('equal')
-    plt.plot(X,Y)
-    plt.show()
+    intersection_data = []
+    
+    if e > 0:
+        cos_nu = (p / target_radius - 1) / e
+        
+        if abs(cos_nu) <= 1.0:
+            nu_sol = np.arccos(cos_nu)
+            anomalies = [nu_sol, -nu_sol]
+            
+            for nu in anomalies:
+                theta_global = nu + omega
+                x_int = target_radius * np.cos(theta_global)
+                y_int = target_radius * np.sin(theta_global)
+                
+                phi_rad = np.arctan2(e * np.sin(nu), 1 + e * np.cos(nu))
+                phi_deg = np.degrees(phi_rad)
+                
+                intersection_data.append({
+                    'coords': (x_int, y_int),
+                    'angle_deg': phi_deg
+                })
+        else:
+            print("\nWARNING: Circle does not intersect the ellipse.")
+    else:
+        if abs(p - target_radius) < 1e-3:
+            print("Orbit is identical to the target circle.")
+        else:
+            print("Concentric orbits with no intersection.")
+    
+    return intersection_data
