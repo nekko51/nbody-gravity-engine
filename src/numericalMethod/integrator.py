@@ -12,11 +12,6 @@ def unitario(vector):
     return vector/np.linalg.norm(vector)
 
 def calcularAceleraciones(posiciones,masas,G):
-    """Toma un array de vectores posición, un 
-    array de escalares masa y la constante 
-    de gravitación univarsal. Devuelve
-    los valores de las aceleraciones en un array
-    de vectores."""
     N=len(masas)
     dim = posiciones.shape[1]
     matrizDistancias = np.zeros((N, dim, N))
@@ -29,7 +24,6 @@ def calcularAceleraciones(posiciones,masas,G):
     return aceleraciones
 
 def stepRungeKutta4(posiciones,velocidades,masas,G,dt):
-    """Toma un array de vecores posición, un array de vectores velocidad, un array de escalares masa, la constante de gravitación univarsal y el paso de tiempo. Devuelve una dupla con un array de vectores posición y un array de vecores velocidad."""
     k1_v = calcularAceleraciones(posiciones, masas, G)
     k1_r = velocidades
     k2_v = calcularAceleraciones(posiciones + k1_r * 0.5 * dt, masas, G)
@@ -43,8 +37,6 @@ def stepRungeKutta4(posiciones,velocidades,masas,G,dt):
     return nextPoss,nextVels
 
 def distanciaMinimaUltimoCuerpo(posiciones):
-    """Calcula la distancia mínima entre el último cuerpo (nave)
-    y el resto de cuerpos."""
     nave = posiciones[-1]
     otros = posiciones[:-1]
     distancias = np.linalg.norm(otros - nave, axis=1)
@@ -121,12 +113,6 @@ def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,fase,debug=False):
     return np.array(historial)
 
 def graficarTrayectorias(historial, nombres=None, assets="assets/"):
-    """
-    Toma el historial devuelto por calculoOrbitas.
-    Genera 3 gráficas: Trayectorias, Hamiltoniano Total y Energía Mecánica Nave.
-    
-    historial: Array numpy (Pasos, 3 + N*dim*2) -> [tiempo, H_tot, H_nave, pos..., vel...]
-    """
     dim = 3
     total_cols = historial.shape[1]
     n_cuerpos = int((total_cols - 3) / 2 / dim)

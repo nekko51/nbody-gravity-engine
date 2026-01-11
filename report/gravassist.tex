@@ -13,6 +13,7 @@
 \usetikzlibrary{patterns,patterns.meta}
 \usetikzlibrary{shapes.geometric}
 \usepackage{setspace}
+\usepackage{listings}
 \usepackage{multicol}
 \usepackage{pst-node}
 \usepackage{mathtools}
@@ -31,6 +32,32 @@
 \usepackage{subcaption}
 \usepackage{hyperref}
 \usepackage[backend=biber,style=apa]{biblatex}
+
+
+\usepackage{xcolor}
+
+% Definición de colores estilo Python
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.95}
+\lstset{
+    language=Python,
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue!75},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{orange!70!red!85!black},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,                 
+    captionpos=t,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    showspaces=false,
+	lineskip=2pt,
+	emph={np},
+    emphstyle=\color{orange!70!red!85!black}\bfseries,
+}
 
 \addbibresource{bib.bib}
 \usepackage[a4paper]{geometry}
@@ -93,24 +120,37 @@ El presente trabajo aborda la simulación de un sistema solar reducido compuesto
 El objetivo central del estudio es el análisis y optimización de la maniobra de asistencia gravitacional. Se examina el intercambio de momento angular entre el planeta y la nave para determinar las condiciones iniciales de lanzamiento y el parámetro de impacto que maximizan la velocidad heliocéntrica final de la sonda. Se construye una superficie de optimización, mutando las variables que afectan al intercambio de energía, que permite identificar la trayectoria de máxima ganancia.
 
 \subsection{Plan de vuelo}
-Se va a proceder con dos rutinas de cálculo numérico para la búsqueda de la ruta 
-óptima, para luego comparar sus resultados.
+Se va a proceder con dos fases para la rutina de cálculo.
 
-Como primera opción tenemos el método analítico. El Sol se considerará
+Como primera tenemos el método analítico. El Sol se considerará
 fijo en toda la trayectoria de estudio. Al principio de la órbita de transferencia,
 solo se considerará la acción del Sol sobre la nave para obtener una elíptica dependiente
 de la velocidad inicial. Con esto se tendrán dos puntos de corte con la órbita
 de Venus para cada trayectoria. Para 
 cada punto de corte, se modelará el sistema Venus nave variando la posición de Venus
-en un entorno centrado en el corte. El punto exacto en que se cambia de sistema 
+en un entorno centrado en el corte. 
+
+El punto exacto en que se cambia de sistema 
 de referencia queda determinado por el radio de
 la esfera de influencia gravitatoria de Venus
-(\cite{rsoi}).
+(\cite{rsoi}). 
 
-La segunda opción es completamente simulada a ordenador. Se tendrán en cuenta 
-la Tierra, Venus, el Sol y la nave en todo momento y el paso de tiempo será adaptativo
-para salvar singularidades y mejorar la precisión. Este paso de tiempo será dependiente 
-de la distancia de la nave al cuerpo más cercano.
+Después de la trayectoria hiperbólica y al salir de radio de
+influencia de Venus, se volverá al sistema de referencia heliocéntrico para 
+medir su hamiltoniano. Con esto se tiene una forma de evaluar la energía transferida
+a la nave, que es la cantidad a maximizar.
+
+Finalmente, se hará un barrido que analice todo el espacio de condiciones iniciales
+para determinar las ventanas de condiciones iniciales que resulten en máximos locales.
+
+La segunda parte es numérica. Se simulará computacionalmente el sistema nave, Venus y 
+Sol, utilizando un integrador RK4 con paso temporal adaptativo (dependiente 
+de la distancia de la nave al cuerpo más cercano) para salvar 
+singularidades y mejorar la precisión. Con este modelo de asumida suficiente fidelidad,
+se analizarán las ventanas de condiciones iniciales que se extrayeron 
+en la primera fase.
+
+
 
 % ------------------------------------------
 \newpage
@@ -123,26 +163,61 @@ En esta parte del trabajo abordamos el problema dividiendo la trayectoria en dos
 
 Para la fase de crucero entre la Tierra y Venus, consideramos el sistema Sol-nave aislado. Según la teoría de fuerzas centrales, este sistema de dos cuerpos puede reducirse a un problema efectivo de un solo cuerpo de masa reducida $\mu$ moviéndose en un potencial central $V(r)$ (\cite{teoria_mecanica}).
 
-Dado que la masa de la nave es despreciable frente a la del Sol ($m \ll M_{\odot}$), la masa reducida $\mu \approx m$ y el centro de masas coincide prácticamente con el Sol. La dinámica queda gobernada por la conservación de la energía mecánica $E$ y del momento angular $\vec{L}$, lo que confina la trayectoria a un plano invariante.
+Dado que la masa de la nave, $m$, es despreciable frente a la del Sol ($m \ll M_{\odot}$), la masa reducida $\mu \approx m$ y el centro de masas coincide prácticamente con el Sol. La dinámica queda gobernada por la conservación de la energía mecánica $E$ y del momento angular $\vec{L}$, lo que confina la trayectoria a un plano invariante.
+Por tanto, podemos describir su órbita con:
+\begin{equation}\label{eq:1ecos}
+    r = \frac{p}{1+e\cos\theta}
+\end{equation}
+siendo $r$ la distancia relativa en cierto instante, $p$ el parámetro 
+de la órbita, 
+$e$ la excentricidad y $\theta$ el ángulo recorrido hasta el mismo instante.
 
 La ecuación de la vis-viva, derivada directamente de la integral de la energía para el potencial gravitatorio newtoniano, determina la velocidad en cualquier punto de la elipse de transferencia:
 
-\begin{equation}
-    v^2 = \mu \left( \frac{2}{r} - \frac{1}{a} \right)
+\begin{equation}\label{eq:viva}
+    v^2 = \mu_\circ \left( \frac{2}{r} - \frac{1}{a} \right)
 \end{equation}
-donde $v$ es la velocidad orbital de la nave, $r$ la distancia heliocéntrica, $a$ el semieje mayor de la elipse (definido por la energía total negativa del sistema, $E < 0$) y $\mu=GM$ es el parámetro gravitacional estándar del cuerpo al que se orbita.
-
-% Geométricamente, determinamos los puntos de corte imponiendo la condición $r(\theta)_{nave} = r(\theta)_{v}$. Sin embargo, la viabilidad de la maniobra de asistencia gravitacional depende críticamente de la fase orbital relativa en el momento del encuentro.
+donde $v$ es la velocidad orbital del cuerpo que orbita, $a$ el semieje mayor de la elipse que describe (definido por la energía total negativa del sistema, $E < 0$), $r$ la distancia relativa entre ambos y $\mu_\circ=GM_\circ$ es el parámetro gravitacional estándar del cuerpo al que se orbita.
 
 \section{Dispersión en la Esfera de Influencia (SOI)}
 
-Cuando la nave ingresa en la Esfera de Influencia de Venus ($r < r_{\text{SOI}}$), realizamos un cambio de sistema de referencia. El problema se modela ahora como la interacción de una partícula libre con un centro dispersor fijo (Venus). Definimos el límite de esta interacción mediante la siguiente aproximación (tomada de \cite{rsoi}):
+\begin{figure}[ht!]
+	\centering
+	\begin{tikzpicture}[scale=.5]
+		\filldraw[yellow] (0,0) node[black]{} circle (.5);
+		% órbitas
+		\draw[] (0,0) circle (6);
+		\draw[] (0,0) circle (4);
+		\draw[red, thick] (6,0) arc(0:105:4 cm) ++ (0,0) arc (90:140:10 cm) ++ (0,0) circle (.05);
+		% \draw[thick, red] (1,0) ellipse (5 and 4.5);
+		% planetas
+		\filldraw[blue!50] (6,0) node[black,below left]{} circle (.2);
+		\filldraw[orange!50] (75:4) node[black,above right]{} circle (.2);
+		% \filldraw[red] (1.1,5) circle (.1);
+		\draw[gray] (75:4) circle (.5);
+		\draw[gray] (75:4) ++ (0,.5) -- (15,7);
+		\draw[gray] (75:4) ++ (0,-.5) -- (15,-7);
+		\begin{scope}[shift={(15,0)}]
+			\filldraw[fill=white,draw=gray] (0,0) circle (7);
+			\draw (0,6) node[below,black] {\footnotesize Esfera de influencia de Venus};
+			\draw (165:7) -- (-15:7);
+			\filldraw[orange!50] (0,0) circle (.5);
+			\draw[red, thick] (10:7) .. controls (280:2) .. (195:7);
+			\draw[black, Stealth-Stealth] (0,0) -- (40:7) node[midway, above, sloped] {$r_{SOI}$};
+    	\end{scope}
+        % \draw [decorate, decoration={brace, amplitude=10pt}] (23,-8) -- (-7,-8);
+        % \begin{scope}[shift={(8,-15)}]
+        % \end{scope}
+	\end{tikzpicture}
+\end{figure}
+
+Cuando la nave ingresa en la Esfera de Influencia de Venus ($r < r_{\text{SOI}}$), realizamos un cambio de sistema de referencia. El problema se modela ahora como la interacción de una partícula libre con un centro dispersor fijo (Venus). Definimos el límite de esta interacción mediante la siguiente aproximación tomada de \cite{rsoi}:
 
 \begin{equation}
-    r_{\text{SOI}} \approx r_{\text{v}} \left( \frac{m_{\text{v}}}{M_{\odot}} \right)^{2/5}
+    r_{\text{SOI}} \approx r_{\text{v}} \left( \frac{M_{\text{v}}}{M_{\odot}} \right)^{2/5}
 \end{equation}
 donde $r_{\text{v}}$ es la distancia del Sol a Venus, $M_\odot$ es la masa del 
-Sol y $m_{\text{v}}$ la masa de Venus.
+Sol y $M_{\text{v}}$ la masa de Venus.
 
 En este marco local, la nave posee una energía mecánica positiva respecto a Venus ($E > 0$), lo que resulta en una trayectoria abierta hiperbólica. El objetivo de la maniobra se reinterpreta como un problema de dispersión: buscamos maximizar la deflexión del vector velocidad asintótico.
 
@@ -153,14 +228,238 @@ La geometría del encuentro viene caracterizada por el parámetro de impacto $s$
 	\quad\implies\quad
 	\theta = 2 \tan^{-1} \left( \frac{k}{2Es} \right)
 \end{equation}
-donde $k = G M_{\text{v}} m$ es la constante del potencial gravitatorio y $E = \frac{1}{2} m v_{\infty}^2$ es la energía cinética incidente, que será aproximada a la velocidad relativa con respecto a Venus cuando la nave entre en su esfera de influiencia. Esta relación analítica nos permite apuntar con precisión: variando ligeramente $s$ en nuestra simulación, controlamos directamente el ángulo de salida y, por tanto, la ganancia de momento lineal en el sistema heliocéntrico.
+donde $k = G M_{\text{v}} m$ es la constante del potencial gravitatorio y $E = \frac{1}{2} m v_{\infty}^2$ es la energía cinética incidente, que será aproximada a la velocidad relativa con respecto a Venus cuando la nave entre en su esfera de influiencia. Esta relación analítica nos permite apuntar con precisión: variando ligeramente $s$ en la simulación, controlamos directamente el ángulo de salida y, por tanto, la ganancia de momento lineal en el sistema heliocéntrico.
+
+\section{Código}
+
+\subsection{Cálculo del parámetro de impacto a partir de la fase} 
+Esta función estima el parámetro de impacto b en el encuentro con Venus a partir de la velocidad de lanzamiento y la configuración geométrica inicial entre la Tierra y Venus. El objetivo es traducir un desfase angular en una distancia de aproximación.
+
+\begin{lstlisting}[language=Python, caption=Cálculo de elementos orbitales y anomalía de llegada.] 
+def calcular_b_desde_fase(v_lanzamiento, fase_inicial_deg): 
+    energia = (v_lanzamiento**2) / 2 - MU_SUN / R_TIERRA if energia >= 0: return None
+
+    a = -MU_SUN / (2 * energia)
+    h = R_TIERRA * v_lanzamiento
+    p = h**2 / MU_SUN
+
+    e_val = np.sqrt(max(0, 1 - p/a))
+    cos_nu_llegada = np.clip((p / R_VENUS_ORBIT - 1) / e_val, -1, 1)
+    nu_llegada = 2 * np.pi - np.arccos(cos_nu_llegada)
+    ...
+
+\end{lstlisting} Se determinan las constantes de la órbita de transferencia (energía, semieje mayor y excentricidad) asumiendo un lanzamiento desde la posición de la Tierra. Se calcula la anomalía verdadera en el punto de intersección con la órbita de Venus, seleccionando el nodo correspondiente a la trayectoria de llegada.
+
+\begin{lstlisting}[language=Python, caption=Determinación del tiempo de vuelo mediante la ecuación de Kepler.]
+def calcular_b_desde_fase(v_lanzamiento, fase_inicial_deg):
+    ... 
+    angulo_recorrido_sc = nu_llegada - np.pi
+
+    E_inicio = np.pi
+    E_llegada = 2 * np.pi - 2 * np.arctan(np.sqrt((1-e_val)/(1+e_val)) * np.tan((2*np.pi - nu_llegada)/2))
+
+    M_inicio = E_inicio - e_val * np.sin(E_inicio)
+    M_llegada = E_llegada - e_val * np.sin(E_llegada)
+
+    n = np.sqrt(MU_SUN / a**3)
+    t_vuelo = (M_llegada - M_inicio) / n
+    ...
+
+\end{lstlisting} Se calcula el tiempo de vuelo necesario para que la sonda recorra la trayectoria elíptica. Para ello, se transforman las anomalías verdaderas en anomalías excéntricas y, posteriormente, en anomalías medias a través de la ecuación de Kepler (tomado de \cite{kepler}), permitiendo obtener el tiempo exacto de tránsito.
+
+\begin{lstlisting}[language=Python, caption=Cálculo del error angular y parámetro b.]
+def calcular_b_desde_fase(v_lanzamiento, fase_inicial_deg):
+    ...
+    omega_v = np.sqrt(MU_SUN / R_VENUS_ORBIT**3) fase_inicial_rad = np.radians(fase_inicial_deg) angulo_venus_final = fase_inicial_rad + (omega_v * t_vuelo)
+
+    error_angular = angulo_recorrido_sc - angulo_venus_final
+    error_angular = (error_angular + np.pi) % (2 * np.pi) - np.pi
+
+    b = R_VENUS_ORBIT * np.sin(error_angular)
+    return b
+\end{lstlisting} Finalmente, se calcula la posición de Venus tras el tiempo de vuelo y se compara con la posición de llegada de la sonda. El desfase angular resultante (normalizado entre $-\pi$ y $\pi$) se proyecta sobre el radio orbital de Venus para obtener el parámetro de impacto b, que define la geometría del encuentro.
+
+
+% Con el siguiente código, a partir de las condiciones iniciales de velocidad
+% y fase de Venus en lanzamiento, obtendremos el Hamiltoniano después de la asistencia.
+
+
+
+% \begin{lstlisting}[language=Python, caption=Transferencia heliocéntrica.]
+% def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9 ):
+%     impact_parameter_b = calcular_b_desde_fase(v_launch_mag, phase)
+%     if np.isnan(impact_parameter_b):
+%         return np.nan
+    
+%     h = r_launch * v_launch_mag
+%     energy_initial = (v_launch_mag**2)/2 - MU_SUN/r_launch
+%     a = -MU_SUN / (2 * energy_initial)
+    
+%     term_e = 1 + (2 * energy_initial * h**2) / (MU_SUN**2)
+%     if term_e < 0: return np.nan # depuración de errores
+%     e = np.sqrt(term_e)
+%     p = a * (1 - e**2)
+    
+%     cos_nu = (p / R_VENUS_ORBIT - 1) / e
+%     if abs(cos_nu) > 1.0: return np.nan # depuración de errores
+    
+%     nu_intersect = -np.arccos(cos_nu)
+%     ...
+% \end{lstlisting}
+
+% Primero se toma la órbita de Venus como una circunferencia y 
+% la de la nave como una elipse. De la trayectoria de la nave se conocen las
+% condiciones iniciales, con lo que queda perfectamente determinada. Usando la ecuación 
+% \ref{eq:1ecos}, se obtiene la coordenada angular del punto de corte 
+% entre ambas órbitas. 
+
+\subsection{Simulación de la trayectoria de asistencia} 
+Esta función constituye el núcleo físico del simulador. Calcula la interacción gravitatoria entre la sonda y Venus, determinando cómo varía la energía heliocéntrica tras el encuentro mediante el modelo de parches de cónicas.
+
+\begin{lstlisting}[language=Python, caption=Cálculo del encuentro y velocidad de exceso.]
+def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False): 
+    impact_parameter_b = calcular_b_desde_fase(v_launch_mag, phase) 
+    if np.isnan(impact_parameter_b): 
+        return np.nan
+
+    h = r_launch * v_launch_mag
+    energy_initial = (v_launch_mag**2)/2 - MU_SUN/r_launch
+    a = -MU_SUN / (2 * energy_initial)
+    e = np.sqrt(1 + (2 * energy_initial * h**2) / (MU_SUN**2))
+    p = a * (1 - e**2)
+
+    cos_nu = (p / R_VENUS_ORBIT - 1) / e
+    nu_intersect = -np.arccos(np.clip(cos_nu, -1, 1)) 
+
+    v_perp = MU_SUN / h * (1 + e * np.cos(nu_intersect))
+    v_radial = MU_SUN / h * e * np.sin(nu_intersect)
+    phi_sc = np.arctan2(v_radial, v_perp)
+    v_sc_mag = np.sqrt(v_perp**2 + v_radial**2)
+
+    v_venus_mag = np.sqrt(MU_SUN / R_VENUS_ORBIT)
+    v_inf_sq = v_sc_mag**2 + v_venus_mag**2 - 2 * v_sc_mag * v_venus_mag * np.cos(phi_sc)
+    v_inf_mag = np.sqrt(max(0, v_inf_sq))
+    ...
+\end{lstlisting} Se determinan las condiciones cinemáticas justo antes del encuentro. Se calcula el ángulo de la trayectoria ($\varphi_\text{sc}$) y la velocidad relativa o de exceso hiperbólico $v_\infty$ mediante el teorema del coseno, combinando los vectores de velocidad de la sonda y de Venus en el punto de intersección de sus órbitas.
+
+\begin{lstlisting}[language=Python, caption=Análisis de la hipérbola y control de colisión.]
+def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False):
+    ...
+    if abs(impact_parameter_b) < 1.0: 
+        impact_parameter_b = 1.0 if impact_parameter_b >= 0 else -1.0
+
+    term_hyp = (impact_parameter_b * v_inf_sq) / MU_VENUS
+    e_hyp = np.sqrt(1 + term_hyp**2)
+    rp = (MU_VENUS / v_inf_sq) * (e_hyp - 1)
+
+    if rp < SAFE_RADIUS:
+        return np.nan
+
+    tan_half_delta = MU_VENUS / (impact_parameter_b * v_inf_sq)
+    delta = 2 * np.arctan(tan_half_delta)
+    ...
+\end{lstlisting} Se modela la trayectoria cercana como una hipérbola centrada en Venus. Se calcula el radio de periapsis $r_p$ para asegurar que la sonda no impacte con el planeta o entre en una zona de frenado atmosférico no deseada, comparándolo con el radio seguro (radio de Venus teniendo en cuenta su atmósfera). Si la trayectoria es segura, se obtiene el ángulo de deflexión $\delta$, que representa cuánto se desviará el vector de velocidad de exceso.
+
+\begin{lstlisting}[language=Python, caption=Rotación de velocidad y energía final.]
+def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False):
+    ... 
+    vec_v_venus = np.array([v_venus_mag, 0]) vec_v_sc = np.array([v_sc_mag * np.cos(phi_sc), v_sc_mag * np.sin(phi_sc)]) vec_v_inf_in = vec_v_sc - vec_v_venus
+
+    c, s = np.cos(delta), np.sin(delta)
+    R = np.array(((c, -s), (s, c)))
+    vec_v_inf_out = np.dot(R, vec_v_inf_in)
+
+    vec_v_sc_out = vec_v_venus + vec_v_inf_out
+    v_final_mag = np.linalg.norm(vec_v_sc_out)
+
+    e_final = (v_final_mag**2)/2 - MU_SUN/R_VENUS_ORBIT
+    return e_final
+\end{lstlisting} 
+En la fase final, se aplica la matriz de rotación al vector de velocidad de entrada para obtener la dirección de salida. Al sumar vectorialmente la velocidad orbital de Venus, se recupera la velocidad heliocéntrica resultante. El valor de retorno es la energía específica final (Hamiltoniano), cuya optimización permitirá maximizar el cambio de órbita deseado.
+
+\subsection{Optimización iterativa}
+Esta es la función que hará el barrido del espacio de condiciones iniciales. Toma 
+rangos de ambas condiciones, hace una malla de valores del
+hamiltoniano final y repite en un rango más pequeño y centrado en el máximo tantas
+veces como pasos se hayan elegido.
+
+\begin{lstlisting}[language=Python, caption=Inicialización y comienzo del bucle.]
+def iterative_optimization(v_center, v_span, b_center, b_span, steps, grid_res):
+    best_v = 0
+    best_b = 0
+    max_e = -np.inf
+
+    print(f"--- INICIANDO OPTIMIZACIÓN ITERATIVA ({steps} PASOS) ---")
+    
+    for step in range(steps):
+        v_min, v_max = v_center - v_span/2, v_center + v_span/2
+        b_min, b_max = b_center - b_span/2, b_center + b_span/2
+        
+        v_vals = np.linspace(v_min, v_max, grid_res)
+        b_vals = np.linspace(b_min, b_max, grid_res)
+        
+        energy_grid = np.zeros((grid_res, grid_res))
+    	...
+\end{lstlisting}
+Se inicializan las variables cuyo máximo se quiere encontrar y 
+sus rangos y además de la malla solución del
+paso actual dentro del bucle principal. El bucle principal hace una iteración
+por cada reducción de los rangos.
+
+\begin{lstlisting}[language=Python, caption=Iteración y cálculo.]
+def iterative_optimization(v_center, v_span, b_center, b_span, steps=5, grid_res=60):
+	...
+        for i, b in enumerate(b_vals):
+            for j, v in enumerate(v_vals):
+                val = simulate_analytic_flyby(v, b)
+                energy_grid[i, j] = val if not np.isnan(val) else -np.inf
+        
+        if np.all(energy_grid == -np.inf):
+            print(f"Paso {step+1}: No se encontraron trayectorias seguras en este rango.")
+            break
+            
+        idx = np.unravel_index(np.argmax(energy_grid), energy_grid.shape)
+        
+        current_max_e = energy_grid[idx]
+        current_best_b = b_vals[idx[0]]
+        current_best_v = v_vals[idx[1]]
+        
+        print(f"Paso {step+1}:")
+        print(f"  Rango V: [{v_min/1000:.1f}, {v_max/1000:.1f}] km/s")
+        print(f"  Rango b: [{b_min/1e6:.1f}, {b_max/1e6:.1f}] Mm")
+        print(f"  --> Óptimo local: V={current_best_v/1000:.4f} km/s, ")
+        print(f"	b={current_best_b/1e6:.4f} Mm, E={current_max_e:.2e}")
+	...
+\end{lstlisting}
+Se usa la función anterior, que realiza la simulación y devuelve el hamiltoniano final,
+para cada par de condiciones iniciales. Ese valor se guarda en la malla y, tras 
+todas las simulaciones, se extrae el valor máximo. Se muestra por pantalla el resumen
+de los datos de las simulaciones.
+
+\begin{lstlisting}[language=Python, caption=Actulización y resultados.]
+def iterative_optimization(v_center, v_span, b_center, b_span, steps=5, grid_res=60):
+	...
+        v_center = current_best_v
+        b_center = current_best_b
+        
+        v_span *= 0.2
+        b_span *= 0.2
+
+    print("\n--- OPTIMIZACIÓN COMPLETADA ---")
+    print(f"Precisión final V: +/- {v_span/2:.2f} m/s")
+    print(f"Precisión final b: +/- {b_span/2000:.2f} km")
+\end{lstlisting}
+Se actualizan los valores del centro, que pasa a ser el par de coordenadas con el
+valor máximo en la malla, y del rango, que pasa a ser un quinto del valor anteior. 
+Finalmente, al acabar el bucle, se muestran los resultados de todo el proceso.
+
 
 
 
 % ------------------------------------------
 \newpage
 % ------------------------------------------
-\part{Simulación Numérica de 4 Cuerpos}
+\part{Simulación Numérica de N Cuerpos}
 
 En esta parte, en lugar de ``apagar'' y ``encender'' la gravedad de los distintos cuerpos, simulamos la evolución simultánea de todo el sistema (Sol, Tierra, Venus y nave) integrando directamente las ecuaciones del movimiento. Esto permite capturar las perturbaciones gravitatorias continuas que el método analítico ignora.
 
@@ -172,7 +471,7 @@ Para un sistema de $N$ partículas interactuando gravitatoriamente, el estado di
     L = \sum_{i=1}^N \frac{1}{2} m_i |\dot{\vec{r}}_i|^2 + \sum_{i<j} \frac{G m_i m_j}{|\vec{r}_i - \vec{r}_j|}
 \end{equation}
 
-Aplicando las ecuaciones de Lagrange $\frac{d}{dt}\frac{\partial L}{\partial\dot{q}_{j}}-\frac{\partial L}{\partial q_{j}}=0$ a cada coordenada de la nave, obtenemos la ecuación diferencial vectorial acoplada que gobierna su aceleración:
+Aplicando las ecuaciones de Lagrange $\frac{d}{dt}\frac{\partial L}{\partial\dot{q}_{j}}-\frac{\partial L}{\partial q_{j}}=0$ a cada coordenada de la nave (también para el resto de cuerpos), obtenemos la ecuación diferencial vectorial acoplada que gobierna su aceleración:
 
 \begin{equation}
     \ddot{\vec{r}}_{nave} = - \sum_{j \neq nave} G m_j \frac{\vec{r}_{nave} - \vec{r}_j}{|\vec{r}_{nave} - \vec{r}_j|^3}
@@ -202,6 +501,11 @@ Dado que el Lagrangiano del sistema no depende explícitamente del tiempo ($\par
 \end{equation}
 
 Utilizamos esta propiedad teórica como herramienta de control de calidad. Monitorizando la variación de la energía total del sistema durante la simulación, verificamos que el error numérico introducido por el integrador RK4 se mantiene acotado, validando así la precisión física de la trayectoria obtenida.
+
+\section{Código}
+
+
+
 
 
 % ------------------------------------------
