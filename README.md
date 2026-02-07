@@ -8,7 +8,7 @@ This engine simulates and optimizes gravity assist maneuvers within a reduced So
 
 The simulation employs a dual-stage approach to balance computational efficiency with physical high-fidelity.
 
-## Analytical Approach: Patched Conics
+### Analytical Approach: Patched Conics
 
 The trajectory is modeled using the patched conics approximation, dividing the flight into distinct two-body problems:
 
@@ -20,7 +20,7 @@ $$
 
 - SOI Dispersion: Upon entering Venus's Sphere of Influence ($r<r_\text{SOI}​$), the reference frame shifts to the planet. The encounter is modeled as a hyperbolic scattering problem where the deflection angle $\vartheta$ is a function of the impact parameter $s$ and the hyperbolic excess velocity $v_\infty$​.
 
-## Numerical N-Body Simulation
+### Numerical N-Body Simulation
 
 To account for continuous gravitational perturbations, the system integrates the equations of motion derived from the Lagrangian:
 
