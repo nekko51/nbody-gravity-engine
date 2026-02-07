@@ -22,7 +22,7 @@ $$
 To account for continuous gravitational perturbations, the system integrates the equations of motion derived from the Lagrangian:
 
 $$
-  \ddot{\vec{r}}_{nave} = - \sum_{j \neq nave} G m_j \frac{\vec{r}_{nave} - \vec{r}_j}{|\vec{r}_{nave} - \vec{r}_j|^3}
+  \ddot{\vec{r}}_{\text{ship}} = - \sum_{j \neq \text{ship}} G m_j \frac{\vec{r}_{\text{ship}} - \vec{r}_j}{|\vec{r}_{\text{ship}} - \vec{r}_j|^3}
 $$
 
 The integration uses a 4th-order Runge-Kutta (RK4) algorithm. To manage potential singularities and high gradients during close approach, an adaptive time step ($\delta t$) is implemented based on the distance to the nearest body ($r_\text{min}$​): $\delta t=\eta r_\text{min}$​.
