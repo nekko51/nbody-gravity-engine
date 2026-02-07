@@ -3,6 +3,8 @@
 This engine simulates and optimizes gravity assist maneuvers within a reduced Solar System model (Sun, Earth, Venus, and spacecraft). The primary objective is to maximize the probe's final heliocentric velocity by optimizing the angular momentum exchange during the planetary encounter.
 Methodology
 
+![Orbits](assets/orbitas.png)
+
 The simulation employs a dual-stage approach to balance computational efficiency with physical high-fidelity.
 
 ## Analytical Approach: Patched Conics
