@@ -1,60 +1,50 @@
 # Gravitational Assistance Simulator and Trajectory Optimization
 
-This repository contains an astrodynamic simulation engine designed to analyze and optimize gravity assist maneuvers. It focuses specifically on a reduced model of the Solar System, which includes the Sun, Earth, Venus, and the spacecraft whose heliocentric velocity is to be maximized.
+This engine simulates and optimizes gravity assist maneuvers within a reduced Solar System model (Sun, Earth, Venus, and spacecraft). The primary objective is to maximize the probe's final heliocentric velocity by optimizing the angular momentum exchange during the planetary encounter.
+Methodology
 
-## Flight plan
+The simulation employs a dual-stage approach to balance computational efficiency with physical high-fidelity.
 
-The analysis will be performed using two different methods:
+## Analytical Approach: Patched Conics
 
-- Analytical calculation: approximation to patched conics and dispersion.
-- Numerical simulation: direct integration, using the 
-4th order Runge-Kutta algorithm, of the equations of motion for 4 bodies with
-adaptive time stepping.
+The trajectory is modeled using the patched conics approximation, dividing the flight into distinct two-body problems:
 
-## Computation
-### Numerical model
-Lagrangian mechanics is used to obtain the equations of motion:
+- Heliocentric Transfer: The Sun-probe system is treated as an isolated central force problem. Velocity is determined via the vis-viva equation:
 
 $$
-\ddot {\vec r_i}=-\sum_{j\ne i}^nGM_j\frac{\vec r_i-\vec r_j}{\big|\vec r_i-\vec r_j\big|^3}
+v^2=\mu_\odot\left(\frac{2}{r}-\frac{1}{a}\right)
 $$
 
-These differential equations have no analytical solution for the number of 
-bodies involved. Therefore, the fourth-order Runge-Kutta integrator (RK4) is used.
+- SOI Dispersion: Upon entering Venus's Sphere of Influence ($r<r_\text{SOI}​$), the reference frame shifts to the planet. The encounter is modeled as a hyperbolic scattering problem where the deflection angle $\vartheta$ is a function of the impact parameter $s$ and the hyperbolic excess velocity $v_\infty$​.
 
-Added to this is the need to overcome singularities when carrying out 
-the maneuver under study. To handle these as best as possible, an adaptive time step proportional to the distance between the spacecraft and the 
-body closest to it is used:
+## Numerical N-Body Simulation
+
+To account for continuous gravitational perturbations, the system integrates the equations of motion derived from the Lagrangian:
 
 $$
-\delta t=\eta r_\text{min}
+  \ddot{\vec{r}}_{nave} = - \sum_{j \neq nave} G m_j \frac{\vec{r}_{nave} - \vec{r}_j}{|\vec{r}_{nave} - \vec{r}_j|^3}
 $$
 
-### Validation of numerical calculation
-To ensure the physical accuracy of the simulation, the code
-monitors the value of the system's Hamiltonian. This verifies that 
-the numerical error of the integrator remains within limits.
+The integration uses a 4th-order Runge-Kutta (RK4) algorithm. To manage potential singularities and high gradients during close approach, an adaptive time step ($\delta t$) is implemented based on the distance to the nearest body ($r_\text{min}$​): $\delta t=\eta r_\text{min}$​.
 
----
----
----
-Through manual parameter tuning of the initial conditions, the following orbits were obtained for 
-a Venus phase $\vartheta=5.3328\ \text{rad}$ and a push to the spacecraft
-that slows it down $\Delta v=-4000\ \text{ms}^{-1}$ relative to Earth, its point of departure:
+## Optimization and Results
 
----
-<p align="center">
-  <img src="assets/orbitas.png" width="600" title="hover text">
-  <br>
-  <em>Fig 1. Trajectory simulation (axis in meters). Note: Visual outputs generated from original Spanish codebase.</em>
-</p>
+An iterative optimization algorithm was used to sweep the initial condition space (launch velocity $v$ and Venus phase $\phi$). Three primary windows of interest were identified analytically:
 
----
+Window | Launch Velocity $v$ (km/s) | Initial Venus Phase $\phi$ ($^\circ$)
+:-----:|:--------------------------:|:-----------------:
+$V_1$​  | [24, 28]                   | [-53, -44]
+$V_2$  | [12, 26]                   | [-47, -43]
+$V_3$  | [8, 12]                    | [-55, -48]
 
-With this same orbit, the change in the spacecraft's Hamiltonian is reflected 
-in the environment the instant it approaches Venus:
+The window $V_2$​ yielded the highest energy gain and was selected for numerical refinement ($V_f$​) with the following intervals: $v\in[19.5,24]$ km/s and $\phi\in[−44.7,−43.5]$ $^\circ$.
 
----
-![Trayectoria de Asistencia Gravitacional](assets/energia_nave.png)
+## Technical Conclusions
 
----
+- *Validation of the Patched Conics Method:* The analytical approximation proved to be a highly effective tool for narrowing the search space. The numerical N-body results confirmed that the optimal windows identified analytically remain valid despite the inclusion of multi-body perturbations.
+
+- *Numerical Precision and Conservation:* The conservation of the system's Hamiltonian served as a quality control metric. Monitoring the total energy verified that the RK4 integrator, combined with the adaptive time step, maintained numerical errors within acceptable bounds throughout the maneuver.
+
+- *Sensitivity Analysis:* The results indicate that the efficiency of the gravity assist is significantly more sensitive to the initial orbital phase than to the absolute launch velocity. Precise timing (phase) is critical to achieving the impact parameter required for maximum deflection and energy transfer.
+
+- *Computational Performance:* The implementation of the adaptive step allowed for high resolution at periapsis without the prohibitive cost of a globally small fixed step, effectively resolving the trajectory even at distances below $6.15\times10^6$ m from the planetary center.

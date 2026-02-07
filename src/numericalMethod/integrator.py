@@ -90,12 +90,13 @@ def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,fase,debug=False):
         posActual = extraerPosicionesVectorEstado(vectorEstado,dim,N)
         velNaveNorm = (velActual[-1] @ velActual[-1])**.5
         rmin = distanciaMinimaUltimoCuerpo(posActual)
+        
         if rmin*dtFactor > 1e2:
             dt = dtFactor*rmin/velNaveNorm
         else:
             dt = 100.0
         if rmin < 6151800:
-            print("=======================\nHa habido una colisión.\n=======================")
+            print("\n=======================\nHa habido una colisión.\n=======================")
             return np.array([0])
         nextPos, nextVel = stepRungeKutta4(posActual,velActual,masas,G,dt)
         stepNumber += 1
@@ -267,20 +268,20 @@ def graficarTrayectorias(historial, nombres=None, assets="assets/"):
 
 def optimizationStepSlingshot(faseVenus,deltaVelNave,tiempoSim,dtFactor,debug=False):
     G = 6.67430e-11
-    masas=[1.98850e30,4.86750e24,5.97220e24,1e6]
+    masas=[1.98850e30,4.86750e24,1e6] #,5.97220e24
     rVenus = 1.08200e11
     vVenus = 3.50200e4
     posicionesIniciales = [
         [0.0, 0.0,0.0],    
         [rVenus*np.cos(faseVenus),rVenus*np.sin(faseVenus),0.0], 
-        [1.49600e11,0.0,0.0],
+        # [1.49600e11,0.0,0.0],
         [1.49500e11,0.0,0.0], # delta = 1e8 (1.495e11), para salir de la SOI de la tierra debería ser 1e9 (1.486e11)
     ]
     velocidadesIniciales = [
         [0.0, 0.0,0.0],
         [-vVenus*np.sin(faseVenus),vVenus*np.cos(faseVenus),0.0],   
-        [0.0, 2.97800e4,0.0],
-        [0.0, 2.97800e4+deltaVelNave,0.0],
+        # [0.0, 2.97800e4,0.0],
+        [0.0,deltaVelNave,0.0],
     ]
     posicionesIniciales = np.array(posicionesIniciales)
     velocidadesIniciales = np.array(velocidadesIniciales)
@@ -334,5 +335,19 @@ def graficarSuperficieOptimizacion(min_fase,max_fase,min_dv,max_dv,resFase,resDV
     fichero_nave = assets + "energia_nave.png"
     plt.savefig(fichero_nave, dpi=300)
     print(f"Guardado: {fichero_nave}")
-    plt.show()
+
+    fase_flat = X.flatten()
+    dv_flat = Y.flatten()
+    energia_flat = Z.flatten()
+    datos_export = np.column_stack((fase_flat, dv_flat, energia_flat))
+
+    fichero_txt = assets + "datos_optimizacion1.txt"
+    
+    np.savetxt(fichero_txt, datos_export, fmt='%.6e', 
+               header='Fase DeltaV Energia', comments='')
+    
+    print(f"Datos exportados para LaTeX en: {fichero_txt}")
+    # ----------------------------------------------
+
+    # plt.show()
     return X, Y, Z

@@ -31,6 +31,7 @@
 \usepackage{booktabs}
 \usepackage{subcaption}
 \usepackage{hyperref}
+\usepackage{bm}
 \usepackage[backend=biber,style=apa]{biblatex}
 
 
@@ -65,6 +66,12 @@
 \setlength{\parindent}{0.5in}
 \renewcommand{\baselinestretch}{2}
 \pgfplotsset{compat=1.18}
+
+\newcommand{\cuadrado}{}
+\def\cuadrado(#1,#2)(#3,#4){
+\fill[green!50,opacity=.3] (#1,#2) -- (#1,#4) -- (#3,#4) -- (#3,#2) -- cycle;
+\draw[green!50, thick, opacity=.7] (#1,#2) -- (#1,#4) -- (#3,#4) -- (#3,#2) -- cycle;
+}
 
 \newcommand{\titulo}{}
 \def\titulo(#1,#2){
@@ -502,18 +509,259 @@ Dado que el Lagrangiano del sistema no depende explícitamente del tiempo ($\par
 
 Utilizamos esta propiedad teórica como herramienta de control de calidad. Monitorizando la variación de la energía total del sistema durante la simulación, verificamos que el error numérico introducido por el integrador RK4 se mantiene acotado, validando así la precisión física de la trayectoria obtenida.
 
+
+
 \section{Código}
 
+En lo que sigue se describen las funciones principales del módulo \texttt{integrator.py} usado en la simulación numérica. La explicación se organiza siguiendo el orden del fichero: funciones auxiliares, cálculo de aceleraciones, integrador RK4, manejo del vector-estado, cálculo de energías, bucle de integración con paso temporal adaptativo, salida gráfica y rutinas de optimización.
 
+\newpage
 
+\subsection{Cálculo de aceleraciones gravitatorias}
+\begin{lstlisting}[language=Python, caption=Cálculo de la aceleración neta sobre cada cuerpo por interacción mutua.]
+def calcularAceleraciones(posiciones,masas,G):
+    N=len(masas)
+    dim = posiciones.shape[1]
+    matrizDistancias = np.zeros((N, dim, N))
+    for i in range(N):
+        for j in range(N):
+            if i!=j:
+                deltaR = vecRelativo(posiciones[i],posiciones[j])
+                matrizDistancias[i,:,j]=unitario(deltaR)/np.linalg.norm(deltaR)**2
+    aceleraciones = matrizDistancias @ masas * G
+    return aceleraciones
+\end{lstlisting}
 
+La función construye una estructura que para cada par $(i,j)$ contiene el vector unitario desde $i$ hacia $j$ dividido por $r^2$ (la dependencia típica de la aceleración gravitatoria). Se evita la autointeracción con la condición \texttt{if i!=j}. Finalmente, un producto matricial con el vector de masas y el factor gravitatorio \texttt{G} produce la aceleración neta sobre cada cuerpo: esto está pensado para explotar la multiplicación lineal y mantener el código compacto.
+
+\subsection{Paso de integración: Runge--Kutta 4}
+\begin{lstlisting}[language=Python, caption=Paso RK4 para posiciones y velocidades.]
+def stepRungeKutta4(posiciones,velocidades,masas,G,dt):
+    k1_v = calcularAceleraciones(posiciones, masas, G)
+    k1_r = velocidades
+    k2_v = calcularAceleraciones(posiciones + k1_r * 0.5 * dt, masas, G)
+    k2_r = velocidades + k1_v * 0.5 * dt
+    k3_v = calcularAceleraciones(posiciones + k2_r * 0.5 * dt, masas, G)
+    k3_r = velocidades + k2_v * 0.5 * dt
+    k4_v = calcularAceleraciones(posiciones + k3_r * dt, masas, G)
+    k4_r = velocidades + k3_v * dt
+    nextVels = velocidades + (dt / 6.0) * (k1_v + 2*k2_v + 2*k3_v + k4_v)
+    nextPoss = posiciones + (dt / 6.0) * (k1_r + 2*k2_r + 2*k3_r + k4_r)
+    return nextPoss,nextVels
+\end{lstlisting}
+
+Se implementa un integrador de cuarto orden que actualiza simultáneamente posiciones y velocidades. La función espera los estados en un determinado instante de timepo y devuelve los nuevos estados tras un paso \texttt{dt}. El uso de RK4 proporciona precisión suficiente para las escalas de tiempo y velocidades consideradas, manteniendo estabilidad fuera de las cercanías de las singularidades.
+
+\newpage
+
+\subsection{Cálculo del Hamiltoniano (energía total) y energía de la nave}
+\begin{lstlisting}[language=Python, caption=Cálculo de energía total y energía específica de la nave.]
+def calculoHamiltoniano(posiciones,velocidades,masas,G):
+    masas = np.array(masas)
+    r_vec = posiciones[:, np.newaxis, :] - posiciones[np.newaxis, :, :]
+    r_matrix = np.linalg.norm(r_vec, axis=2)
+    with np.errstate(divide='ignore'):
+        inv_r = 1.0 / r_matrix
+    np.fill_diagonal(inv_r, 0)
+    potencialTerm = 0.5 * np.sum(masas[:, None] * inv_r * masas[None, :])
+    V = -G * potencialTerm
+    v_sq = np.sum(velocidades**2, axis=1) 
+    T = 0.5 * np.sum(masas * v_sq)
+    return T + V
+
+def calculoHamiltonianoNave(posiciones,velocidades,masas,G):
+    nave = posiciones[-1]
+    otros = posiciones[:-1]
+    distancias = np.linalg.norm(otros - nave, axis=1)
+    distancias[distancias < 1e-10] = 1e-10
+    V = - G * masas[-1] * (1/distancias) @ masas[:-1]
+    velNave = velocidades[-1]
+    T = masas[-1] * velNave.T @ velNave / 2
+    return T + V
+\end{lstlisting}
+
+\noindent Ambas rutinas calculan la energía total del sistema y la energía mecánica específica de la nave respecto del sistema heliocéntrico. En \texttt{calculoHamiltoniano} se evita la doble cuenta en el potencial con el factor 0.5 y se anula la diagonal de la matriz inversa de distancias para evitar autointeracción. \texttt{calculoHamiltonianoNave} evalúa únicamente la contribución potencial debida a los otros cuerpos y la energía cinética de la nave.
+
+\newpage
+
+\subsection{Bucle principal y ajuste de paso temporal}
+\begin{lstlisting}[language=Python, caption=Bucle de integración adaptativa y almacenamiento de historial (resumen).]
+def calculoOrbitas(initPos,initVel,masas,tiempoSim,dtFactor,G,fase,debug=False):
+    N=len(masas)
+    dim = initPos.shape[1]
+    H = calculoHamiltoniano(initPos,initVel,masas,G)
+    naveH = calculoHamiltonianoNave(initPos,initVel,masas,G)
+    historial = [[0,H,naveH,*initPos.flatten(),*initVel.flatten()]]
+    stepNumber = 0
+    timePassed = 0
+    while timePassed < tiempoSim:
+        vectorEstado = historial[-1]
+        velActual = extraerVelocidadesVectorEstado(vectorEstado,dim,N)
+        posActual = extraerPosicionesVectorEstado(vectorEstado,dim,N)
+        velNaveNorm = (velActual[-1] @ velActual[-1])**.5
+        rmin = distanciaMinimaUltimoCuerpo(posActual)
+        if rmin*dtFactor > 1e2:
+            dt = dtFactor*rmin/velNaveNorm
+        else:
+            dt = 100.0
+        if rmin < 6151800:
+            print("\n=====================\nHa habido una colisión.\n=====================")
+            return np.array([0])
+        nextPos, nextVel = stepRungeKutta4(posActual,velActual,masas,G,dt)
+        stepNumber += 1
+        timePassed += dt
+        H = calculoHamiltoniano(nextPos,nextVel,masas,G)
+        naveH = calculoHamiltonianoNave(nextPos,nextVel,masas,G)
+        historial.append([timePassed,H,naveH, *nextPos.flatten(), *nextVel.flatten()])
+    return np.array(historial)
+\end{lstlisting}
+
+El bucle central itera hasta cubrir el tiempo total \texttt{tiempoSim}. El paso de tiempo se adapta en función de la distancia mínima de la nave al resto de cuerpos: se escala proporcionalmente a \texttt{rmin} y al factor de escalado \texttt{dtFactor}, normalizado por la velocidad de la nave para mantener resolución espacial aproximada. Si la nave entra en una zona crítica (radio inferior a 6.151.800 m) se considera colisión y la rutina termina. En cada paso se actualizan las energías y se almacena el estado completo en \texttt{historial}, cuya estructura permite un análisis posterior y la generación de gráficas.
 
 % ------------------------------------------
 \newpage
 % ------------------------------------------
-\phantomsection
-\addcontentsline{toc}{part}{Discusión de Resultados y Conclusiones}
-\part*{Análisis de Resultados y Concluciones}
+% \phantomsection
+% \addcontentsline{toc}{part}
+\part{Análisis de resultados}
+
+\section{Aproximación por el método analítico}
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            view={0}{90},
+            title={Primer nivel y ventanas óptimas},
+            ylabel={Velocidad Lanzamiento $v$ (km/s)},
+            xlabel={Fase Venus $\varphi$ ($^\circ$)},
+            colorbar,
+            colorbar style={title={E (J/kg)}},
+            mesh/rows=51,
+            grid=major,
+        ]
+            \addplot3[surf, shader=flat, mesh/check=false, x=v_lanzamiento, y=fase, z=energia] 
+            table {datos_malla_power.txt};
+        \end{axis}
+        \begin{scope}[
+            shift={(0.17,0)},
+            x=1.16cm,
+        ]
+            \cuadrado(3,1.5)(4.2,2.8)
+            \cuadrado(3.5,5)(5.2,5.68)
+            \cuadrado(4.5,3.5)(5.4,5.3)
+            \draw[green!50] (3,1.4) node[below right]{$V_3$};
+            \draw[green!50] (3.5,5) node[below right]{$V_1$};
+            \draw[green!50] (4.5,3.5) node[above left]{$V_2$};
+        \end{scope}
+    \end{tikzpicture}
+    \caption{Mapa de energía obtenido mediante optimización iterativa.}
+\end{figure}
+
+En el gráfico\footnote{Para disminuir el coste del renderizado, se ha tomado la media de la potencia cuarta de grupos de la malla real para reducir la resolución de $1000\times1000$ a $50\times50$. Se seguía la expresión $\overline{E}=\left(\frac{1}{n}\sum^n_iE^p_i\right)^{1/p}$. También aplica a todos los calculados analíticamente.} están marcadas en verde las ventanas ($V_1$,
+$V_2$ y $V_3$) consideradas relevantes.
+Para las siguiente iteración tomamos los intervalos
+mostrados en la siguiente tabla.
+
+\begin{table}[ht]
+    \centering
+\begin{tabular}{ccc}
+  \rule{0pt}{12pt} & $v$ (km/s) & $\varphi$ ($^\circ$) \\[2pt] \hline
+$V_1$ \rule{0pt}{12pt} & $[24,28]$ & $[-53,-44]$ \\[2pt] \hline
+$V_2$ \rule{0pt}{12pt} & $[12,26]$ & $[-47,-43]$ \\[2pt] \hline
+$V_3$ \rule{0pt}{12pt} & $[8,12]$ & $[-55,-48]$ \\[2pt] \hline
+\end{tabular}
+\end{table}
+
+\newpage
+Estos son los mapas de ganancia de energía 
+de cada ventana:
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            view={0}{90},
+            title={Ventana $V_1$},
+            ylabel={Velocidad Lanzamiento $v$ (km/s)},
+            xlabel={Fase Venus $\varphi$ ($^\circ$)},
+            colorbar,
+            colorbar style={title={E (J/kg)}},
+            mesh/rows=59,
+            grid=major,
+        ]
+            \addplot3[surf, shader=flat, mesh/check=false, x=v_lanzamiento, y=fase, z=energia] 
+            table {datos_malla_powerV1.txt};
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Mapa de energía de la ventana $V_1$.}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[scale=.8]
+        \begin{axis}[
+            view={0}{90},
+            title={Ventana $V_2$},
+            ylabel={Velocidad Lanzamiento $v$ (km/s)},
+            xlabel={Fase Venus $\varphi$ ($^\circ$)},
+            colorbar,
+            colorbar style={title={E (J/kg)}},
+            mesh/rows=50,
+            grid=major,
+        ]
+            \addplot3[surf, shader=flat, mesh/check=false, x=v_lanzamiento, y=fase, z=energia] 
+            table {datos_malla_powerV2.txt};
+        \end{axis}
+        \cuadrado(4,2)(6,4.58)
+        \draw[green!50!black] (6,2) node[above left]{$\bm{V_f}$};
+    \end{tikzpicture}
+    \begin{tikzpicture}[scale=.8]
+        \begin{axis}[
+            view={0}{90},
+            title={Ventana $V_3$},
+            ylabel={Velocidad Lanzamiento $v$ (km/s)},
+            xlabel={Fase Venus $\varphi$ ($^\circ$)},
+            colorbar,
+            colorbar style={title={E (J/kg)}},
+            mesh/rows=50,
+            grid=major,
+        ]
+            \addplot3[surf, shader=flat, mesh/check=false, x=v_lanzamiento, y=fase, z=energia] 
+            table {datos_malla_powerV3.txt};
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Mapa de energía de la ventanas $V_2$ y $V_3$.}
+\end{figure}
+
+Dado que en la ventana $V_2$ se llega a 
+un máximo mayor que en las otras dos, el 
+rango de valores a estudiar mediante 
+la simulación numérica queda en la ventana 
+$V_f$, con intervalos $v\in[19.5,24]$ y $\varphi\in[-44.7,-43.5]$.
+
+\newpage
+Con esos intervalos obtenemos por el método numérico:
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            xlabel={Fase (rad)},
+            ylabel={Delta V (m/s)},
+            zlabel={Energía (J/kg)},
+            colorbar,
+            title={Ventana $V_f$ (simulación)},
+            height=6cm,
+            width=7cm,
+            unbounded coords=jump,
+            view={0}{90},
+        ]
+            \addplot3[surf, shader=flat, mesh/rows=20]
+                table {datos_optimizacion1.txt};
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Mapa de energía mediante simulación.}
+\end{figure}
+
 
 
 % ------------------------------------------

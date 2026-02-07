@@ -1,11 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 G = 6.67430e-11
 M_SUN = 1.989e30
 M_VENUS = 4.867e24
-R_VENUS_ORBIT = 108.2e9 
+R_VENUS_ORBIT = 108.2e9
 R_TIERRA = 1.496e11
 R_VENUS_BODY = 6051.8e3 
 
@@ -58,9 +57,7 @@ def calcular_b_desde_fase(v_lanzamiento, fase_inicial_deg):
 
 
 def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False):
-    if debug:
-        collision_counter = 0
-
+    e_inicial = (v_launch_mag**2)/2 - MU_SUN/R_TIERRA
     impact_parameter_b = calcular_b_desde_fase(v_launch_mag, phase)
     if np.isnan(impact_parameter_b):
         return np.nan
@@ -99,8 +96,7 @@ def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False
     
     if rp < SAFE_RADIUS:
         if debug:
-            collision_counter += 1
-            print(f"Colisiones: {collision_counter}", end='')
+            print('|', end='')
         return np.nan
         
     tan_half_delta = MU_VENUS / (impact_parameter_b * v_inf_sq)
@@ -111,7 +107,7 @@ def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False
     vec_v_inf_in = vec_v_sc - vec_v_venus
     
     c, s = np.cos(delta), np.sin(delta)
-    R = np.array(((c, -s), (s, c)))
+    R = np.array(((c, s), (-s, c)))
     vec_v_inf_out = np.dot(R, vec_v_inf_in)
     
     vec_v_sc_out = vec_v_venus + vec_v_inf_out
@@ -119,10 +115,11 @@ def simulate_analytic_flyby(v_launch_mag, phase, r_launch = 149.6e9, debug=False
     
     e_final = (v_final_mag**2)/2 - MU_SUN/R_VENUS_ORBIT
     
-    return e_final
+    return e_final - e_inicial
 
-def iterative_optimization(v_center = 30000, v_span = 15000, b_center = 0, 
-                           b_span = 180, steps=5, grid_res=60, debug=False):
+def iterative_optimization(v_center = 26000, v_span = 5000, b_center = 45, 
+                           b_span = 90, steps=5, grid_res=60, show=True,
+                           debug=False):
     best_v = 0
     best_b = 0
     max_e = -np.inf
@@ -156,11 +153,13 @@ def iterative_optimization(v_center = 30000, v_span = 15000, b_center = 0,
         current_best_b = b_vals[idx[0]]
         current_best_v = v_vals[idx[1]]
         
-        print(f"Paso {step+1}:")
-        print(f"  Rango V: [{v_min/1000:.1f}, {v_max/1000:.1f}] km/s")
-        print(f"  Rango b: [{b_min:.5f}, {b_max:.5f}] º")
-        print(f"  > Óptimo local: V={current_best_v/1000:.4f} km/s, ")
-        print(f"      b={current_best_b:.5f} º, E={current_max_e:.2e}")
+        print(f"\nPaso {step+1}:")
+        print(f"\tRango V: [{v_min/1000:.1f}, {v_max/1000:.1f}] km/s")
+        print(f"\tRango ϕ: [{b_min:.5f}, {b_max:.5f}] º")
+        print(f"\t> Óptimo local:")
+        print(f"\t\tV={current_best_v/1000:.4f} km/s")
+        print(f"\t\tϕ={current_best_b:.5f} º")
+        print(f"\t\tE={current_max_e:.2e}")
         
         v_center = current_best_v
         b_center = current_best_b
@@ -171,53 +170,93 @@ def iterative_optimization(v_center = 30000, v_span = 15000, b_center = 0,
         if step == steps - 1:
             best_v, best_b, max_e = current_best_v, current_best_b, current_max_e
             final_grid = energy_grid
-            final_extent = [v_min/1000, v_max/1000, b_min/1e6, b_max/1e6]
+            final_extent = [v_min/1000, v_max/1000, b_min, b_max]
 
     print("\n--- OPTIMIZACIÓN COMPLETADA ---")
     print(f"Precisión final V: +/- {v_span/2:.2f} m/s")
-    print(f"Precisión final b: +/- {b_span/2:.2f} º")
+    print(f"Precisión final ϕ: +/- {b_span/2:.2f} º")
+
+    target_res = 50  # res TIKZ
+    bin_size = grid_res // target_res
+    p_weight = 4
+    v_sub = np.array([np.mean(v_vals[i:i+bin_size]) for i in range(0, grid_res, bin_size)]) / 1000
+    b_sub = np.array([np.mean(b_vals[i:i+bin_size]) for i in range(0, grid_res, bin_size)])
+    energy_clean = np.where(energy_grid == -np.inf, np.nan, energy_grid)
+    with open("assets/datos_malla_power.txt", "w") as f:
+        f.write("fase v_lanzamiento energia\n")
+        
+        for i in range(target_res):
+            for j in range(target_res):
+                block = energy_clean[i*bin_size:(i+1)*bin_size, j*bin_size:(j+1)*bin_size]
+
+                valid_data = block[~np.isnan(block)]
+                
+                if valid_data.size == 0:
+                    res_val = "nan"
+                else:
+                    offset = abs(np.min(valid_data)) if np.min(valid_data) < 0 else 0
+                    shifted_data = valid_data + offset
+                    
+                    pow_mean = (np.mean(shifted_data**p_weight))**(1/p_weight)
+                    res_val = f"{pow_mean - offset:.5e}"
+                
+                f.write(f"{b_sub[i]:.5f} {v_sub[j]:.5f} {res_val}\n")
+            f.write("\n")
+    print(f"Archivo generado usando media de potencia (p={p_weight}).")
+    if show:
+        plt.figure(figsize=(10, 8))
+
+        grid_masked = np.ma.masked_where(final_grid == -np.inf, final_grid)
+
+        im = plt.imshow(grid_masked, origin='lower', extent=final_extent, aspect='auto', cmap='plasma')
+        cbar = plt.colorbar(im)
+        cbar.set_label('Energía (J/kg)')
+
+        # plt.plot(best_v/1000, best_b, 'gx', markersize=20, markeredgewidth=4, label='Óptimo Final')
+
+        plt.title(f'Pasos: {steps}')
+        plt.xlabel('Velocidad Inicial (km/s)')
+        plt.ylabel('Fase de Venus ϕ (º)')
+        # plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.show()
+
+        # fig = plt.figure(figsize=(12, 8))
+        # ax = fig.add_subplot(111, projection='3d')
+
+        # x = np.linspace(final_extent[0], final_extent[1], grid_masked.shape[1])
+        # y = np.linspace(final_extent[2], final_extent[3], grid_masked.shape[0])
+        # X, Y = np.meshgrid(x, y)
+
+        # surf = ax.plot_surface(X, Y, grid_masked, cmap='plasma', edgecolor='none', alpha=0.8)
+
+        # best_z = np.max(grid_masked)
+        # ax.scatter(best_v/1000, best_b/1e6, best_z, color='green', s=100, marker='x', 
+        #            linewidths=4, label='Óptimo Final', depthshade=False)
+
+        # ax.set_title(f'Superficie 3D - Zoom Final (Nivel {steps})')
+        # ax.set_xlabel('Velocidad Inicial (km/s)')
+        # ax.set_ylabel('Parámetro de Impacto b (Millones de km)')
+        # ax.set_zlabel('Energía (J/kg)')
+
+        # fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Energía (J/kg)')
+
+        # ax.view_init(elev=30, azim=225)
+
+        # plt.legend()
+        # plt.show()
     
-    plt.figure(figsize=(10, 8))
-    
-    grid_masked = np.ma.masked_where(final_grid == -np.inf, final_grid)
-    
-    im = plt.imshow(grid_masked, origin='lower', extent=final_extent, aspect='auto', cmap='plasma')
-    cbar = plt.colorbar(im)
-    cbar.set_label('Energía (J/kg)')
-    
-    plt.plot(best_v/1000, best_b/1e6, 'gx', markersize=20, markeredgewidth=4, label='Óptimo Final')
-    
-    plt.title(f'Zoom Final (Nivel {steps})\nResolución fina alrededor del máximo')
-    plt.xlabel('Velocidad Inicial (km/s)')
-    plt.ylabel('Fase de Venus b (º)')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.show()
-
-    # fig = plt.figure(figsize=(12, 8))
-    # ax = fig.add_subplot(111, projection='3d')
-
-    # x = np.linspace(final_extent[0], final_extent[1], grid_masked.shape[1])
-    # y = np.linspace(final_extent[2], final_extent[3], grid_masked.shape[0])
-    # X, Y = np.meshgrid(x, y)
-
-    # surf = ax.plot_surface(X, Y, grid_masked, cmap='plasma', edgecolor='none', alpha=0.8)
-
-    # best_z = np.max(grid_masked)
-    # ax.scatter(best_v/1000, best_b/1e6, best_z, color='green', s=100, marker='x', 
-    #            linewidths=4, label='Óptimo Final', depthshade=False)
-
-    # ax.set_title(f'Superficie 3D - Zoom Final (Nivel {steps})')
-    # ax.set_xlabel('Velocidad Inicial (km/s)')
-    # ax.set_ylabel('Parámetro de Impacto b (Millones de km)')
-    # ax.set_zlabel('Energía (J/kg)')
-
-    # fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Energía (J/kg)')
-
-    # ax.view_init(elev=30, azim=225)
-
-    # plt.legend()
-    # plt.show()
 
 if __name__ == "__main__":
-    iterative_optimization(steps=2, grid_res=1000)
+    iterative_optimization(v_center=14001,
+                            v_span=28000,
+                            b_center=-56,
+                            b_span=30,
+                           steps=1, grid_res=1000,
+                           debug=True,
+                           show=False)
+    
+# v_center=14001,
+# v_span=28000,
+# b_center=-56,
+# b_span=30,
